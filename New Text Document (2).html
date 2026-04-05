@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="vi" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Học Từ Vựng & Trợ Lý AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0a0a0a',
+                        darkCard: '#171717',
+                        lightBg: '#f5f5f5',
+                        lightCard: '#ffffff'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --tooltip-scale: 1;
+        }
+
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .tooltip-enter {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(calc(var(--tooltip-scale) * 0.9)); }
+            100% { opacity: 1; transform: scale(var(--tooltip-scale)); }
+        }
+
+        .tooltip-container {
+            transform: scale(var(--tooltip-scale));
+            transform-origin: top left;
+            transition: transform 0.2s ease;
+        }
+
+        .spotlight-box {
+            position: absolute;
+            border: 2px solid #3b82f6;
+            background: rgba(59, 130, 246, 0.15);
+            border-radius: 40%;
+            pointer-events: auto; 
+            cursor: pointer;
+            z-index: 40;
+            transition: border-color 0.2s, box-shadow 0.2s, opacity 0.3s;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        }
+        .spotlight-box:hover {
+            border-color: #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        .loader-dot {
+            width: 20px;
+            height: 20px;
+            background-color: #3b82f6;
+            border-radius: 50%;
+            border: 2px solid white;
+            animation: pulse 1.5s infinite ease-in-out;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.7; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.7; }
+        }
+
+        #crop-overlay {
+            cursor: crosshair;
+            background: rgba(0,0,0,0.3);
+        }
+        #selection-box {
+            border: 2px dashed #fff;
+            background: rgba(255,255,255,0.2);
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .chat-slide-up { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .fade-in { animation: fadeIn 0.2s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #image-container {
+            width: 100%;
+            height: calc(100% - 60px);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: grab;
+        }
+        #image-container.cursor-grabbing {
+            cursor: grabbing;
+        }
+        #main-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none; 
+        }
+        
+        .drag-header { cursor: grab; }
+        .drag-header:active { cursor: grabbing; }
+
+        .layer-transition {
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-lightBg text-black dark:bg-darkBg dark:text-white h-screen w-screen overflow-hidden font-sans selection:bg-blue-500 selection:text-white flex flex-col">
+
+    <div class="absolute bottom-6 left-6 z-[90] flex gap-2 items-center bg-white dark:bg-darkCard p-2 rounded-full shadow-lg border border-gray-200 dark:border-gray-700">
+        <button onclick="setTheme('light')" id="btn-theme-light" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none transition-colors"><i class="fas fa-sun"></i></button>
+        <button onclick="setTheme('dark')" id="btn-theme-dark" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none transition-colors"><i class="fas fa-moon"></i></button>
+        <button onclick="setTheme('auto')" id="btn-theme-auto" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none transition-colors"><i class="fas fa-desktop"></i></button>
+    </div>
+
+    <div id="upload-view" class="flex flex-col items-center justify-center h-full w-full px-4 transition-all duration-500 z-10">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl md:text-5xl font-extrabold mb-4 pb-2 text-black dark:text-white">
+                Học Từ Vựng & Trợ Lý AI
+            </h1>
+            <p class="text-gray-500 dark:text-gray-400 text-sm md:text-lg">Tải lên một bức ảnh để khám phá hoặc hỏi AI</p>
+        </div>
+
+        <div id="drop-zone" class="w-full max-w-2xl bg-white dark:bg-darkCard border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-3xl p-10 md:p-20 flex flex-col items-center justify-center cursor-pointer hover:border-black dark:hover:border-white transition-colors group shadow-lg">
+            <input type="file" id="file-input" class="hidden" accept="image/*" />
+            <div class="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 transition-all duration-300 group-hover:scale-105">
+                <i class="fas fa-image text-3xl text-gray-600 dark:text-gray-300"></i>
+            </div>
+            <h3 class="text-xl md:text-2xl font-semibold mb-2">Nhấn để tải ảnh lên</h3>
+            <p class="text-gray-500 dark:text-gray-400 text-sm text-center">hoặc kéo thả tệp ảnh vào đây</p>
+        </div>
+    </div>
+
+    <div id="image-view" class="hidden relative h-full w-full flex-col">
+        <div class="h-[60px] w-full flex items-center justify-between px-3 md:px-6 z-50 bg-white/90 dark:bg-darkCard/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="hidden lg:flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full">
+                    <i class="fas fa-info-circle mr-2 text-blue-500"></i> Click/Kéo ảnh
+                </div>
+                
+                <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 p-1">
+                    <button onclick="changeImageScale(-0.15)" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black dark:hover:text-white rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Thu nhỏ ảnh">
+                        <i class="fas fa-search-minus"></i>
+                    </button>
+                    <button onclick="resetImageScale()" class="w-8 h-8 flex items-center justify-center text-blue-500 hover:text-blue-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-xs font-bold" title="Khôi phục ảnh">
+                        1:1
+                    </button>
+                    <button onclick="changeImageScale(0.15)" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black dark:hover:text-white rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Phóng to ảnh">
+                        <i class="fas fa-search-plus"></i>
+                    </button>
+                </div>
+
+                <div class="hidden sm:flex items-center bg-gray-100 dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 p-1">
+                    <button onclick="changeTooltipScale(-0.1)" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black dark:hover:text-white rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Thu nhỏ thẻ dịch">
+                        <i class="fas fa-minus text-xs"></i>
+                    </button>
+                    <span id="tooltip-scale-display" class="text-xs font-semibold w-10 text-center text-gray-700 dark:text-gray-300 select-none">100%</span>
+                    <button onclick="changeTooltipScale(0.1)" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black dark:hover:text-white rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Phóng to thẻ dịch">
+                        <i class="fas fa-plus text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 md:gap-3">
+                <div class="relative">
+                    <button id="btn-ai-menu" class="bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium shadow-md flex items-center gap-2 hover:opacity-90 transition-opacity">
+                        <i class="fas fa-robot"></i> <span class="hidden md:inline">Hỏi A.I</span>
+                    </button>
+                    <div id="ai-dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white dark:bg-darkCard border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl hidden overflow-hidden z-[70]">
+                        <button onclick="startAIChat('screen')" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2"><i class="fas fa-expand w-4"></i> Hỏi toàn màn hình</button>
+                        <button onclick="startRegionCrop()" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2"><i class="fas fa-crop w-4"></i> Hỏi một góc</button>
+                        <button onclick="startAIChat('anything')" class="w-full text-left px-4 py-3 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"><i class="fas fa-comment-dots w-4"></i> Hỏi bất cứ thứ gì</button>
+                    </div>
+                </div>
+
+                <select id="language-select" class="bg-gray-100 dark:bg-gray-800 text-black dark:text-white px-2 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium border border-gray-200 dark:border-gray-700 outline-none focus:border-black dark:focus:border-white transition-colors cursor-pointer w-24 md:w-auto">
+                    <option value="English" selected >English</option>
+                </select>
+
+                <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+                <button onclick="toggleHideAll()" id="btn-toggle-all" class="bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-800/60 rounded-full w-8 h-8 md:w-10 md:h-10 flex items-center justify-center transition-colors text-blue-600 dark:text-blue-400" title="Ẩn/Hiện tất cả thẻ dịch">
+                    <i id="hide-all-icon" class="fas fa-eye"></i>
+                </button>
+
+                <button id="btn-close" class="bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-800/60 rounded-full w-8 h-8 md:w-10 md:h-10 flex items-center justify-center transition-colors text-red-600 dark:text-red-400" title="Đóng ảnh">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="image-container">
+            <div id="zoom-wrapper" class="w-full h-full relative origin-top-left transition-transform duration-75 ease-out">
+                <img id="main-image" src="" alt="" draggable="false" />
+                
+                <svg id="connections-svg" class="absolute inset-0 pointer-events-none z-30 w-full h-full layer-transition">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+                        </marker>
+                    </defs>
+                </svg>
+
+                <div id="tooltips-overlay" class="absolute inset-0 pointer-events-none overflow-hidden z-40 layer-transition"></div>
+                
+                <div id="crop-overlay" class="absolute inset-0 hidden z-50">
+                    <div id="selection-box" class="hidden"></div>
+                    <div class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 shadow-lg z-50">
+                        <i class="fas fa-crop-alt"></i> Kéo thả để chọn vùng <button onclick="cancelCrop()" class="ml-2 text-red-400 hover:text-red-300"><i class="fas fa-times"></i> Hủy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dictionary-modal" class="fixed inset-0 z-[100] hidden bg-black/40 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 fade-in">
+        <div class="bg-white dark:bg-[#1a1a1a] w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-gray-800">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-[#222]">
+                <div class="flex items-center gap-3 text-blue-600 dark:text-blue-400">
+                    <i class="fas fa-book-open text-xl"></i>
+                    <h2 class="text-xl font-bold font-serif tracking-wide">Từ Điển A.I</h2>
+                </div>
+                <button onclick="closeDictionaryModal()" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="dictionary-content" class="flex-1 overflow-y-auto p-6 md:p-12 relative bg-white dark:bg-[#1a1a1a]"></div>
+        </div>
+    </div>
+
+    <div id="ai-chat-modal" class="fixed inset-0 z-[80] hidden flex-col bg-lightBg dark:bg-darkBg">
+        <div class="h-[60px] flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-darkCard shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold"><i class="fas fa-robot"></i></div>
+                <h3 class="font-semibold text-lg">Trợ Lý A.I</h3>
+            </div>
+            <button onclick="closeAIChat()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="chat-container-scroll" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div id="chat-context-img-container" class="hidden max-w-xs mx-auto mb-4 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700">
+                <img id="chat-context-img" src="" class="w-full h-auto object-contain" />
+            </div>
+            <div id="chat-messages" class="space-y-4">
+                <div class="flex justify-start">
+                    <div class="bg-white dark:bg-darkCard text-black dark:text-white px-4 py-3 rounded-2xl rounded-tl-none shadow-sm max-w-[85%] md:max-w-[70%] border border-gray-100 dark:border-gray-800 text-sm md:text-base">
+                        Xin chào! Tôi có thể giúp gì cho bạn?
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="p-4 bg-white dark:bg-darkCard border-t border-gray-200 dark:border-gray-800 shrink-0">
+            <form id="chat-form" class="flex gap-2 relative">
+                <input type="text" id="chat-input" class="flex-1 bg-gray-100 dark:bg-gray-800 text-black dark:text-white rounded-full px-4 py-3 outline-none border border-transparent focus:border-gray-300 dark:focus:border-gray-600 text-sm md:text-base" placeholder="Nhập câu hỏi của bạn..." autocomplete="off">
+                <button type="submit" class="w-12 h-12 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 flex-shrink-0">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- CẤU HÌNH API GEMINI ---
+        const apiKey = ""; // ĐIỀN API KEY CỦA BẠN VÀO ĐÂY
+        const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+        
+        let tooltipsData = {}; 
+        let zIndexCounter = 50;
+        let currentTooltipScale = 1;
+        let allHidden = false;
+
+        let imgScale = 1;
+        let imgTranslateX = 0;
+        let imgTranslateY = 0;
+        let isPanning = false;
+        let startPanX = 0;
+        let startPanY = 0;
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0 || navigator.userAgent.toUpperCase().indexOf('MAC') >= 0;
+
+        const uploadView = document.getElementById('upload-view');
+        const imageView = document.getElementById('image-view');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const mainImage = document.getElementById('main-image');
+        const imageContainer = document.getElementById('image-container');
+        const zoomWrapper = document.getElementById('zoom-wrapper');
+        const tooltipsOverlay = document.getElementById('tooltips-overlay');
+        const connectionsSvg = document.getElementById('connections-svg');
+        const languageSelect = document.getElementById('language-select');
+        const btnAiMenu = document.getElementById('btn-ai-menu');
+        const aiDropdownMenu = document.getElementById('ai-dropdown-menu');
+        const dictionaryModal = document.getElementById('dictionary-modal');
+        const dictionaryContent = document.getElementById('dictionary-content');
+
+        const langMap = { 'English': 'en-US' };
+
+        function setTheme(theme) {
+            const html = document.documentElement;
+            const isDarkMode = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            
+            if (isDarkMode) html.classList.add('dark');
+            else html.classList.remove('dark');
+            
+            ['light', 'dark', 'auto'].forEach(t => {
+                const btn = document.getElementById(`btn-theme-${t}`);
+                if(btn) {
+                    if (t === theme) {
+                        btn.classList.add('text-black', 'dark:text-white', 'bg-gray-200', 'dark:bg-gray-700');
+                        btn.classList.remove('text-gray-500');
+                    } else {
+                        btn.classList.remove('text-black', 'dark:text-white', 'bg-gray-200', 'dark:bg-gray-700');
+                        btn.classList.add('text-gray-500');
+                    }
+                }
+            });
+            localStorage.setItem('theme', theme);
+        }
+        const savedTheme = localStorage.getItem('theme') || 'auto';
+        setTheme(savedTheme);
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (localStorage.getItem('theme') === 'auto') setTheme('auto');
+        });
+
+        btnAiMenu?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            aiDropdownMenu?.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', () => {
+            if (aiDropdownMenu && !aiDropdownMenu.classList.contains('hidden')) {
+                aiDropdownMenu.classList.add('hidden');
+            }
+        });
+        aiDropdownMenu?.addEventListener('click', e => e.stopPropagation());
+
+        window.changeTooltipScale = function(delta) {
+            currentTooltipScale = Math.max(0.5, Math.min(1.5, currentTooltipScale + delta));
+            document.getElementById('tooltip-scale-display').innerText = Math.round(currentTooltipScale * 100) + '%';
+            document.documentElement.style.setProperty('--tooltip-scale', currentTooltipScale);
+            Object.keys(tooltipsData).forEach(id => updateConnectionLine(id));
+        };
+
+        function updateZoomWrapper() {
+            zoomWrapper.style.transform = `translate(${imgTranslateX}px, ${imgTranslateY}px) scale(${imgScale})`;
+        }
+
+        window.changeImageScale = function(delta) {
+            const containerRect = imageContainer.getBoundingClientRect();
+            zoomAtPoint(delta, containerRect.width / 2, containerRect.height / 2);
+        };
+
+        window.resetImageScale = function() {
+            imgScale = 1;
+            imgTranslateX = 0;
+            imgTranslateY = 0;
+            updateZoomWrapper();
+        };
+
+        function zoomAtPoint(delta, x, y) {
+            const newScale = Math.max(0.5, Math.min(5, imgScale + delta));
+            const ratio = newScale / imgScale;
+            imgTranslateX = x - (x - imgTranslateX) * ratio;
+            imgTranslateY = y - (y - imgTranslateY) * ratio;
+            imgScale = newScale;
+            updateZoomWrapper();
+        }
+
+        imageContainer?.addEventListener('wheel', (e) => {
+            if (!document.getElementById('crop-overlay')?.classList.contains('hidden')) return;
+            e.preventDefault();
+            const rect = imageContainer.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const zoomDelta = e.deltaY < 0 ? 0.1 : -0.1;
+            zoomAtPoint(zoomDelta, mouseX, mouseY);
+        });
+
+        imageContainer?.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.tooltip-container') || e.target.closest('.spotlight-box')) return;
+            if (!document.getElementById('crop-overlay')?.classList.contains('hidden')) return;
+            
+            isPanning = true;
+            startPanX = e.clientX - imgTranslateX;
+            startPanY = e.clientY - imgTranslateY;
+            imageContainer.classList.add('cursor-grabbing');
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            imgTranslateX = e.clientX - startPanX;
+            imgTranslateY = e.clientY - startPanY;
+            updateZoomWrapper();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isPanning) {
+                isPanning = false;
+                imageContainer.classList.remove('cursor-grabbing');
+            }
+        });
+
+        window.toggleHideAll = function() {
+            allHidden = !allHidden;
+            const icon = document.getElementById('hide-all-icon');
+            icon.className = allHidden ? 'fas fa-eye-slash text-gray-500' : 'fas fa-eye';
+            tooltipsOverlay.style.opacity = allHidden ? '0' : '1';
+            connectionsSvg.style.opacity = allHidden ? '0' : '1';
+            tooltipsOverlay.style.pointerEvents = allHidden ? 'none' : 'auto';
+        };
+
+        languageSelect?.addEventListener('change', async (e) => {
+            const newLang = e.target.value;
+            for (const id in tooltipsData) {
+                const item = tooltipsData[id];
+                if (item && item.data && item.data.english_word) {
+                    const primaryEl = document.getElementById(`primary-${id}`);
+                    const secondaryEl = document.getElementById(`secondary-${id}`);
+                    const speakBtn = document.getElementById(`speak-${id}`);
+                    
+                    if(primaryEl) primaryEl.innerText = '...';
+                    
+                    let primaryText, secondaryText, speechLang;
+
+                    if (newLang === 'Vietnamese') {
+                        primaryText = item.data.vietnamese_meaning;
+                        secondaryText = item.data.english_word;
+                        speechLang = 'vi-VN';
+                    } else if (newLang === 'English') {
+                        primaryText = item.data.english_word;
+                        secondaryText = item.data.vietnamese_meaning;
+                        speechLang = 'en-US';
+                    } else {
+                        const translated = await quickTranslateAPI(item.data.english_word, newLang);
+                        primaryText = translated;
+                        secondaryText = item.data.vietnamese_meaning;
+                        speechLang = langMap[newLang] || 'en-US';
+                    }
+
+                    if(primaryEl) primaryEl.innerText = primaryText;
+                    if(secondaryEl) secondaryEl.innerText = secondaryText;
+                    
+                    if(speakBtn) {
+                        const safeWord = primaryText.replace(/'/g, "\\'");
+                        speakBtn.setAttribute('onclick', `speakWord('${safeWord}', '${speechLang}')`);
+                    }
+                }
+            }
+        });
+
+        dropZone?.addEventListener('click', () => fileInput?.click());
+        dropZone?.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-black', 'dark:border-white'); });
+        dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('border-black', 'dark:border-white'));
+        dropZone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-black', 'dark:border-white');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+        });
+
+        fileInput?.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+            e.target.value = '';
+        });
+
+        document.getElementById('btn-close')?.addEventListener('click', () => {
+            imageView?.classList.add('hidden');
+            imageView?.classList.remove('flex');
+            uploadView?.classList.remove('hidden');
+            uploadView?.classList.add('flex');
+            if(mainImage) mainImage.src = '';
+            if(tooltipsOverlay) tooltipsOverlay.innerHTML = ''; 
+            if(connectionsSvg) connectionsSvg.innerHTML = '<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" /></marker></defs>';
+            tooltipsData = {};
+            resetImageScale();
+            if(allHidden) toggleHideAll();
+        });
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showToast('Vui lòng chọn tệp hình ảnh.', true);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if(mainImage) mainImage.src = e.target.result;
+                uploadView?.classList.add('hidden');
+                uploadView?.classList.remove('flex');
+                imageView?.classList.remove('hidden');
+                imageView?.classList.add('flex');
+                if(tooltipsOverlay) tooltipsOverlay.innerHTML = '';
+                if(connectionsSvg) connectionsSvg.innerHTML = '<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" /></marker></defs>';
+                tooltipsData = {};
+                resetImageScale();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-20 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full shadow-lg z-[1000] text-sm font-medium flex items-center gap-2 transition-opacity duration-300 ${isError ? 'bg-red-500 text-white' : 'bg-black dark:bg-white text-white dark:text-black'}`;
+            toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2500);
+        }
+
+        imageContainer?.addEventListener('click', (e) => {
+            if (!document.getElementById('crop-overlay')?.classList.contains('hidden')) return;
+            if (isPanning) return; 
+
+            const isClickInsideTooltip = e.target.closest('.tooltip-container');
+            const isClickInsideBox = e.target.closest('.spotlight-box');
+
+            if (isClickInsideTooltip) return;
+
+            if (isClickInsideBox) {
+                const id = isClickInsideBox.dataset.id;
+                toggleTooltip(id);
+                e.stopPropagation(); 
+                return;
+            }
+
+            if (e.target === mainImage || e.target === tooltipsOverlay || e.target === connectionsSvg || e.target === zoomWrapper) {
+                hideAllTooltips();
+                handleImageClick(e);
+            }
+        });
+
+        function hideAllTooltips() {
+            Object.values(tooltipsData).forEach(item => {
+                if(item.tooltip) {
+                    item.tooltip.style.display = 'none';
+                    item.visible = false;
+                    updateConnectionLine(item.id); 
+                }
+            });
+        }
+
+        window.toggleTooltip = function(id) {
+            const item = tooltipsData[id];
+            if (!item || !item.tooltip) return;
+            
+            if (item.visible) {
+                item.tooltip.style.display = 'none';
+                item.visible = false;
+            } else {
+                hideAllTooltips();
+                item.tooltip.style.display = 'flex';
+                item.visible = true;
+            }
+            updateConnectionLine(id);
+        };
+
+        window.closeTooltip = function(id, event) {
+            if(event) event.stopPropagation();
+            const item = tooltipsData[id];
+            if (item) {
+                if(item.tooltip) item.tooltip.remove();
+                if(item.box) item.box.remove();
+                const line = document.getElementById(`line-${id}`);
+                if(line) line.remove();
+                delete tooltipsData[id];
+            }
+        };
+
+        window.minimizeTooltip = function(id, event) {
+            if(event) event.stopPropagation();
+            const item = tooltipsData[id];
+            if (item && item.tooltip) {
+                item.tooltip.style.display = 'none';
+                item.visible = false;
+                updateConnectionLine(id);
+            }
+        };
+
+        window.openDictionary = function(id, event) {
+            if(event) event.stopPropagation();
+            const item = tooltipsData[id];
+            if (item && item.data && item.data.english_word) {
+                showDictionaryModal(item.data.english_word);
+            }
+        };
+        
+        window.askAIAboutWord = function(word) {
+            startAIChat('anything');
+            setTimeout(() => {
+                const prompt = `Tôi muốn hỏi thêm về sự vật "${word}" trong bức ảnh.`;
+                const inputEl = document.getElementById('chat-input');
+                if(inputEl) inputEl.value = prompt;
+            }, 400);
+        };
+
+        window.closeDictionaryModal = function() {
+            dictionaryModal?.classList.add('hidden');
+            dictionaryModal?.classList.remove('flex');
+            dictionaryContent.innerHTML = ''; 
+        };
+
+        async function showDictionaryModal(word) {
+            dictionaryModal?.classList.remove('hidden');
+            dictionaryModal?.classList.add('flex');
+            
+            dictionaryContent.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full text-gray-500">
+                    <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i>
+                    <p>A.I đang biên soạn từ điển cho "${word}"...</p>
+                </div>
+            `;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [{ text: `Act as a professional dictionary (like Cambridge or Oxford). Create a highly detailed dictionary entry for the English word "${word}". Return ONLY a valid JSON object matching exactly this schema:
+                        {
+                          "word": "${word}",
+                          "pos": "part of speech (e.g. noun, verb, adjective)",
+                          "uk_phonetic": "/UK IPA transcription/",
+                          "us_phonetic": "/US IPA transcription/",
+                          "meanings": [
+                            {
+                              "level": "CEFR Level (e.g. A1, B2, C1)",
+                              "en_def": "Clear English definition",
+                              "vi_trans": "Dịch nghĩa sang tiếng Việt chính xác 100%, đúng chính tả",
+                              "examples": ["Example sentence 1 in English", "Example sentence 2 in English"]
+                            }
+                          ]
+                        }` }]
+                    }],
+                    generationConfig: { responseMimeType: "application/json" }
+                };
+                const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error("API Error");
+                const resData = await response.json();
+                const data = JSON.parse(resData.candidates[0].content.parts[0].text);
+                
+                let html = `
+                    <div class="max-w-3xl mx-auto">
+                        <div class="border-b-2 border-blue-500 dark:border-blue-400 pb-4 mb-6">
+                            <h1 class="text-4xl md:text-5xl font-bold font-serif text-gray-900 dark:text-white mb-2 tracking-tight">${data.word}</h1>
+                            <div class="text-lg text-gray-600 dark:text-gray-400 font-medium italic mb-4">${data.pos}</div>
+                            
+                            <div class="flex flex-wrap gap-6 text-sm md:text-base font-mono">
+                                <span class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg">
+                                    <strong class="text-red-500 font-sans">UK</strong> 
+                                    <button onclick="speakWord('${data.word}', 'en-GB')" class="w-6 h-6 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center hover:text-red-500 shadow-sm transition-colors"><i class="fas fa-volume-up text-xs"></i></button>
+                                    <span class="text-gray-700 dark:text-gray-300">${data.uk_phonetic || '--'}</span>
+                                </span>
+                                <span class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg">
+                                    <strong class="text-blue-500 font-sans">US</strong> 
+                                    <button onclick="speakWord('${data.word}', 'en-US')" class="w-6 h-6 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center hover:text-blue-500 shadow-sm transition-colors"><i class="fas fa-volume-up text-xs"></i></button>
+                                    <span class="text-gray-700 dark:text-gray-300">${data.us_phonetic || '--'}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="space-y-8">
+                `;
+                data.meanings.forEach((m) => {
+                    html += `
+                        <div class="bg-gray-50 dark:bg-[#222] p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                            <div class="flex items-start gap-3 mb-3">
+                                <span class="shrink-0 bg-gradient-to-br from-blue-500 to-blue-700 text-white text-xs font-bold px-2.5 py-1 rounded-md shadow-sm">${m.level || 'C1'}</span>
+                                <div>
+                                    <h3 class="text-lg md:text-xl font-semibold text-gray-900 dark:text-white leading-snug">${m.en_def}</h3>
+                                    <p class="text-blue-600 dark:text-blue-400 mt-1 font-medium">${m.vi_trans}</p>
+                                </div>
+                            </div>
+                            
+                            ${m.examples && m.examples.length > 0 ? `
+                                <div class="mt-4 pl-12 border-l-2 border-gray-200 dark:border-gray-700">
+                                    <ul class="space-y-3">
+                                        ${m.examples.map(ex => `
+                                            <li class="text-gray-700 dark:text-gray-300 relative before:content-['•'] before:absolute before:-left-5 before:text-gray-400">
+                                                <i class="fas fa-angle-right text-gray-300 dark:text-gray-600 text-xs mr-2"></i> ${ex}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+                dictionaryContent.innerHTML = html;
+
+            } catch(e) {
+                dictionaryContent.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-red-500">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Xin lỗi, đã xảy ra lỗi khi tạo từ điển. Vui lòng thử lại.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function handleImageClick(e) {
+            if (!mainImage || allHidden) return;
+            
+            const rect = mainImage.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) / imgScale;
+            const clickY = (e.clientY - rect.top) / imgScale;
+
+            const imgW = mainImage.clientWidth;
+            const imgH = mainImage.clientHeight;
+            const imgRatio = mainImage.naturalWidth / mainImage.naturalHeight;
+            const boxRatio = imgW / imgH;
+            
+            let renderWidth, renderHeight, renderX, renderY;
+            if (imgRatio > boxRatio) {
+                renderWidth = imgW;
+                renderHeight = imgW / imgRatio;
+                renderX = 0;
+                renderY = (imgH - renderHeight) / 2;
+            } else {
+                renderHeight = imgH;
+                renderWidth = imgH * imgRatio;
+                renderY = 0;
+                renderX = (imgW - renderWidth) / 2;
+            }
+
+            if (clickX < renderX || clickX > renderX + renderWidth ||
+                clickY < renderY || clickY > renderY + renderHeight) {
+                return;
+            }
+
+            const naturalX = (clickX - renderX) * (mainImage.naturalWidth / renderWidth);
+            const naturalY = (clickY - renderY) * (mainImage.naturalHeight / renderHeight);
+
+            const base64Data = prepareImageForAI(mainImage, naturalX, naturalY);
+            const targetLanguage = languageSelect?.value || 'Vietnamese';
+
+            const wrapperRect = zoomWrapper.getBoundingClientRect();
+            const overlayX = (e.clientX - wrapperRect.left) / imgScale;
+            const overlayY = (e.clientY - wrapperRect.top) / imgScale;
+
+            const loader = createLoader(overlayX, overlayY);
+            tooltipsOverlay.appendChild(loader);
+            
+            try {
+                const responseData = await callGeminiAPI(base64Data, targetLanguage);
+                loader.remove();
+
+                if (responseData && responseData.english_word && responseData.english_word.toLowerCase() !== 'unknown') {
+                    const id = 'item-' + Date.now();
+                    tooltipsData[id] = { id: id, visible: true, data: responseData };
+                    
+                    if (responseData.xmin != null && responseData.xmax != null && (responseData.xmax - responseData.xmin) > 0) {
+                        const boxX = renderX + (responseData.xmin / 1000) * renderWidth;
+                        const boxY = renderY + (responseData.ymin / 1000) * renderHeight;
+                        const boxW = ((responseData.xmax - responseData.xmin) / 1000) * renderWidth;
+                        const boxH = ((responseData.ymax - responseData.ymin) / 1000) * renderHeight;
+
+                        const box = document.createElement('div');
+                        box.className = 'spotlight-box';
+                        box.style.left = `${boxX}px`;
+                        box.style.top = `${boxY}px`;
+                        box.style.width = `${boxW}px`;
+                        box.style.height = `${boxH}px`;
+                        box.dataset.id = id;
+                        
+                        tooltipsOverlay.appendChild(box);
+                        tooltipsData[id].box = box;
+                    }
+
+                    const tooltip = createTooltip(id, overlayX, overlayY, responseData, targetLanguage);
+                    tooltipsOverlay.appendChild(tooltip);
+                    tooltipsData[id].tooltip = tooltip;
+
+                    adjustTooltipPosition(tooltip, overlayX, overlayY);
+                    makeDraggable(tooltip, `header-${id}`, id);
+                    
+                    setTimeout(() => updateConnectionLine(id), 50);
+                    
+                    let initialSpeechLang = targetLanguage === 'Vietnamese' ? 'vi-VN' : (targetLanguage === 'English' ? 'en-US' : langMap[targetLanguage] || 'en-US');
+                    let initialWordToSpeak = targetLanguage === 'Vietnamese' ? responseData.vietnamese_meaning : (targetLanguage === 'English' ? responseData.english_word : responseData.translated_word);
+                    speakWord(initialWordToSpeak, initialSpeechLang);
+                } else {
+                    showToast("Không nhận diện được vật thể rõ ràng.", true);
+                }
+            } catch (err) {
+                console.error("API Error:", err);
+                loader.remove();
+                showToast("Lỗi kết nối. Vui lòng thử lại.", true);
+            }
+        }
+
+        function prepareImageForAI(imgElement, naturalX, naturalY) {
+            const MAX_DIMENSION = 1024;
+            let scale = 1;
+            if (imgElement.naturalWidth > MAX_DIMENSION || imgElement.naturalHeight > MAX_DIMENSION) {
+                scale = MAX_DIMENSION / Math.max(imgElement.naturalWidth, imgElement.naturalHeight);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = imgElement.naturalWidth * scale;
+            canvas.height = imgElement.naturalHeight * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+            
+            const targetX = naturalX * scale;
+            const targetY = naturalY * scale;
+
+            ctx.strokeStyle = '#FF0000';
+            ctx.lineWidth = Math.max(canvas.width * 0.005, 3);
+            const r = Math.max(canvas.width * 0.03, 15); 
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, r, 0, 2 * Math.PI); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(targetX - r - 15, targetY);
+            ctx.lineTo(targetX + r + 15, targetY);
+            ctx.moveTo(targetX, targetY - r - 15); ctx.lineTo(targetX, targetY + r + 15); ctx.stroke();
+            
+            return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+        }
+
+        async function callGeminiAPI(base64Image, targetLanguage) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: `Look at the red crosshair in the image. Identify the single main object exactly at the center of the crosshair. Return a JSON containing:
+                                - "english_word": The standard English word for it (singular).
+                                - "translated_word": The accurate translation of the english_word into ${targetLanguage}.
+                                - "vietnamese_meaning": The accurate translation of the english_word into Vietnamese. Ensure absolute correct spelling and diacritics for Vietnamese (e.g. "Cáo" not "C!O"). Do not use any special characters to replace letters.
+                                - "phonetic": Its standard English IPA phonetic transcription.
+                                - "partOfSpeech": Its part of speech.
+                                - "contextDesc": A short English sentence describing the object specifically in its current context within the image.
+                                - "ymin", "xmin", "ymax", "xmax": The bounding box coordinates covering the object, normalized to integers in the range 0 to 1000.` },
+                        { inlineData: { mimeType: "image/jpeg", data: base64Image } }
+                    ]
+                }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: { 
+                            english_word: { type: "STRING" }, 
+                            translated_word: { type: "STRING" }, 
+                            vietnamese_meaning: { type: "STRING" }, 
+                            phonetic: { type: "STRING" }, 
+                            partOfSpeech: { type: "STRING" }, 
+                            contextDesc: { type: "STRING" },
+                            ymin: { type: "INTEGER" }, xmin: { type: "INTEGER" }, ymax: { type: "INTEGER" }, xmax: { type: "INTEGER" } 
+                        },
+                        required: ["english_word", "translated_word", "vietnamese_meaning", "phonetic", "partOfSpeech", "contextDesc", "ymin", "xmin", "ymax", "xmax"]
+                    }
+                }
+            };
+            
+            for (let delay of [1000, 2000, 4000]) {
+                try {
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(response.status);
+                    const data = await response.json();
+                    return JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim());
+                } catch (error) {
+                    await new Promise(r => setTimeout(r, delay));
+                }
+            }
+            throw new Error("Failed after retries");
+        }
+
+        async function quickTranslateAPI(word, targetLanguage) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: `Translate the English word "${word}" to ${targetLanguage}. Return ONLY the translated text, nothing else.` }] }]
+            };
+            try {
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                return data.candidates[0].content.parts[0].text.trim();
+            } catch(e) { 
+                return "Lỗi dịch";
+            }
+        }
+
+        function createLoader(x, y) {
+            const el = document.createElement('div');
+            el.className = 'absolute z-50 flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 pointer-events-none';
+            el.style.left = `${x}px`; el.style.top = `${y}px`;
+            el.innerHTML = '<div class="loader-dot"></div>';
+            return el;
+        }
+
+        function createTooltip(id, x, y, data, targetLanguage) {
+            zIndexCounter++;
+            const tooltip = document.createElement('div');
+            tooltip.className = 'absolute flex flex-col pointer-events-auto tooltip-enter tooltip-container';
+            tooltip.style.left = `${x - 128}px`;
+            tooltip.style.top = `${y - 150}px`;  
+            tooltip.style.zIndex = zIndexCounter;
+
+            let primaryText, secondaryText, speechLang;
+            if (targetLanguage === 'Vietnamese') {
+                primaryText = data.vietnamese_meaning;
+                secondaryText = data.english_word;
+                speechLang = 'vi-VN';
+            } else if (targetLanguage === 'English') {
+                primaryText = data.english_word;
+                secondaryText = data.vietnamese_meaning;
+                speechLang = 'en-US';
+            } else {
+                primaryText = data.translated_word;
+                secondaryText = data.vietnamese_meaning; 
+                speechLang = langMap[targetLanguage] || 'en-US';
+            }
+
+            const safePrimaryWord = primaryText ? primaryText.replace(/'/g, "\\'") : '';
+            const safeEngWordForAI = data.english_word ? data.english_word.replace(/'/g, "\\'") : '';
+            
+            const macHeader = `
+                <div class="flex gap-1.5 items-center">
+                    <div class="w-3 h-3 bg-red-500 rounded-full cursor-pointer hover:bg-red-600 shadow-sm" onclick="closeTooltip('${id}', event)" title="Xóa bản dịch"></div>
+                    <div class="w-3 h-3 bg-yellow-500 rounded-full cursor-pointer hover:bg-yellow-600 shadow-sm" onclick="minimizeTooltip('${id}', event)" title="Tạm thời ẩn"></div>
+                    <div class="w-3 h-3 bg-green-500 rounded-full cursor-pointer hover:bg-green-600 shadow-sm" onclick="openDictionary('${id}', event)" title="Mở từ điển"></div>
+                </div>
+                <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wider select-none">${data.partOfSpeech || 'Word'}</span>
+            `;
+            const winHeader = `
+                <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wider select-none pl-1">${data.partOfSpeech || 'Word'}</span>
+                <div class="flex gap-3 items-center text-gray-400">
+                    <button class="hover:text-black dark:hover:text-white transition-colors" onclick="minimizeTooltip('${id}', event)" title="Tạm thời ẩn"><i class="fas fa-minus"></i></button>
+                    <button class="hover:text-black dark:hover:text-white transition-colors text-xs" onclick="openDictionary('${id}', event)" title="Mở từ điển"><i class="far fa-square"></i></button>
+                    <button class="hover:text-red-500 transition-colors text-lg leading-none" onclick="closeTooltip('${id}', event)" title="Xóa bản dịch">&times;</button>
+                </div>
+            `;
+            const osHeader = isMac ? macHeader : winHeader;
+
+            tooltip.innerHTML = `
+                <div class="bg-white dark:bg-darkCard rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-64 md:w-72 overflow-hidden relative">
+                    <div id="header-${id}" class="drag-header bg-gray-100 dark:bg-gray-800 px-4 py-2.5 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+                        ${osHeader}
+                    </div>
+                    <div class="tooltip-body p-5 flex flex-col gap-1 text-center bg-white dark:bg-darkCard">
+                        <div class="flex items-center justify-center gap-2 mb-1">
+                            <h3 id="primary-${id}" class="text-2xl font-bold text-black dark:text-white capitalize truncate tracking-tight">${primaryText}</h3>
+                            <button id="speak-${id}" onclick="speakWord('${safePrimaryWord}', '${speechLang}')" class="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-colors bg-blue-50 dark:bg-blue-900/30 w-7 h-7 rounded-full flex items-center justify-center shrink-0" title="Nghe âm chuẩn"><i class="fas fa-volume-up text-sm"></i></button>
+                        </div>
+                        <div class="text-sm font-mono text-gray-500 dark:text-gray-400 mb-2">${data.phonetic || '--'}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 italic mb-3 px-2 leading-relaxed">
+                            "${data.contextDesc || 'No context description available.'}"
+                        </div>
+                        <div class="w-full h-px bg-gray-100 dark:bg-gray-800 my-2"></div>
+                        <div id="secondary-${id}" class="mt-2 text-lg font-semibold text-blue-600 dark:text-blue-400 capitalize translation-text">
+                            ${secondaryText}
+                        </div>
+                        <button onclick="askAIAboutWord('${safeEngWordForAI}')" class="mt-4 text-xs bg-gray-50 dark:bg-[#222] hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors mx-auto w-full border border-gray-200 dark:border-gray-700 shadow-sm font-medium">
+                            <i class="fas fa-magic text-blue-500"></i> Hỏi A.I về từ này
+                        </button>
+                    </div>
+                </div>
+            `;
+            return tooltip;
+        }
+
+        function adjustTooltipPosition(tooltip, clickX, clickY) {
+            setTimeout(() => {
+                const rect = tooltip.getBoundingClientRect();
+                const wrapperRect = zoomWrapper?.getBoundingClientRect();
+                if(!wrapperRect) return;
+
+                let currentLeft = parseFloat(tooltip.style.left);
+                let currentTop = parseFloat(tooltip.style.top);
+
+                const scaledW = rect.width / imgScale;
+                const scaledH = rect.height / imgScale;
+                const wrapperW = wrapperRect.width / imgScale;
+                const wrapperH = wrapperRect.height / imgScale;
+
+                if (currentLeft < 0) currentLeft = 10;
+                if (currentLeft + scaledW > wrapperW) currentLeft = wrapperW - scaledW - 10;
+                if (currentTop < 0) currentTop = clickY + 20; 
+                if (currentTop + scaledH > wrapperH) currentTop = wrapperH - scaledH - 10;
+
+                tooltip.style.left = `${currentLeft}px`;
+                tooltip.style.top = `${currentTop}px`;
+            }, 50);
+        }
+
+        function makeDraggable(element, headerId, id) {
+            const header = document.getElementById(headerId);
+            if(!header) return;
+
+            let isDragging = false, startX, startY, initialLeft, initialTop;
+            
+            header.onmousedown = (e) => {
+                isDragging = true;
+                zIndexCounter++;
+                element.style.zIndex = zIndexCounter;
+                startX = e.clientX; 
+                startY = e.clientY;
+                initialLeft = parseFloat(element.style.left) || element.offsetLeft; 
+                initialTop = parseFloat(element.style.top) || element.offsetTop;
+                
+                document.onmousemove = (ev) => {
+                    if (!isDragging) return;
+                    let newLeft = initialLeft + ((ev.clientX - startX) / imgScale);
+                    let newTop = initialTop + ((ev.clientY - startY) / imgScale);
+                    const rect = element.getBoundingClientRect();
+                    const wrapperRect = zoomWrapper?.getBoundingClientRect();
+                    if(!wrapperRect) return;
+
+                    const scaledW = rect.width / imgScale;
+                    const scaledH = rect.height / imgScale;
+                    const wrapperW = wrapperRect.width / imgScale;
+                    const wrapperH = wrapperRect.height / imgScale;
+                    
+                    if(newLeft < 0) newLeft = 0;
+                    if(newTop < 0) newTop = 0;
+                    if(newLeft + scaledW > wrapperW) newLeft = wrapperW - scaledW;
+                    if(newTop + scaledH > wrapperH) newTop = wrapperH - scaledH;
+                    
+                    element.style.left = newLeft + 'px';
+                    element.style.top = newTop + 'px';
+                    
+                    updateConnectionLine(id);
+                };
+                
+                document.onmouseup = () => {
+                    isDragging = false;
+                    document.onmousemove = null; 
+                    document.onmouseup = null; 
+                };
+            };
+            
+            header.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                isDragging = true;
+                zIndexCounter++;
+                element.style.zIndex = zIndexCounter;
+                startX = touch.clientX; 
+                startY = touch.clientY;
+                initialLeft = parseFloat(element.style.left) || element.offsetLeft; 
+                initialTop = parseFloat(element.style.top) || element.offsetTop;
+                
+                document.addEventListener('touchmove', onTouchMove, {passive: false});
+                document.addEventListener('touchend', onTouchEnd);
+            });
+            
+            function onTouchMove(ev) {
+                if(!isDragging) return;
+                ev.preventDefault(); 
+                const touch = ev.touches[0];
+                let newLeft = initialLeft + ((touch.clientX - startX) / imgScale);
+                let newTop = initialTop + ((touch.clientY - startY) / imgScale);
+
+                const rect = element.getBoundingClientRect();
+                const wrapperRect = zoomWrapper?.getBoundingClientRect();
+                if(!wrapperRect) return;
+                
+                const scaledW = rect.width / imgScale;
+                const scaledH = rect.height / imgScale;
+                const wrapperW = wrapperRect.width / imgScale;
+                const wrapperH = wrapperRect.height / imgScale;
+
+                if(newLeft < 0) newLeft = 0;
+                if(newTop < 0) newTop = 0;
+                if(newLeft + scaledW > wrapperW) newLeft = wrapperW - scaledW;
+                if(newTop + scaledH > wrapperH) newTop = wrapperH - scaledH;
+                
+                element.style.left = newLeft + 'px';
+                element.style.top = newTop + 'px';
+                updateConnectionLine(id);
+            }
+            
+            function onTouchEnd() {
+                isDragging = false;
+                document.removeEventListener('touchmove', onTouchMove);
+                document.removeEventListener('touchend', onTouchEnd);
+            }
+        }
+
+        function updateConnectionLine(id) {
+            const item = tooltipsData[id];
+            let path = document.getElementById(`line-${id}`);
+            
+            if (!item || !item.visible || !item.box || !item.tooltip) {
+                if (path) path.style.display = 'none';
+                return;
+            }
+
+            if(!path) {
+                path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('id', `line-${id}`);
+                path.setAttribute('stroke', '#3b82f6');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('stroke-dasharray', '5, 5');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('marker-end', 'url(#arrowhead)');
+                if(connectionsSvg) connectionsSvg.appendChild(path);
+            }
+            path.style.display = 'block';
+
+            const wrapperRect = zoomWrapper.getBoundingClientRect();
+            const boxRect = item.box.getBoundingClientRect();
+            const tooltipRect = item.tooltip.getBoundingClientRect();
+
+            const targetX = (boxRect.left - wrapperRect.left + boxRect.width / 2) / imgScale;
+            const targetY = (boxRect.top - wrapperRect.top + boxRect.height / 2) / imgScale;
+            const tooltipCenterX = (tooltipRect.left - wrapperRect.left + tooltipRect.width / 2) / imgScale;
+            const tooltipTopY = (tooltipRect.top - wrapperRect.top) / imgScale;
+            const tooltipBottomY = (tooltipRect.top - wrapperRect.top + tooltipRect.height) / imgScale;
+            
+            let startX = tooltipCenterX;
+            let startY = targetY > tooltipBottomY ? tooltipBottomY : tooltipTopY;
+
+            const angle = Math.atan2(targetY - startY, targetX - startX);
+            const radius = Math.min(boxRect.width, boxRect.height) / 2 / imgScale; 
+            const endX = targetX - Math.cos(angle) * radius;
+            const endY = targetY - Math.sin(angle) * radius;
+
+            const cp1X = startX;
+            const cp1Y = startY + (endY - startY) / 2;
+            const cp2X = endX;
+            const cp2Y = startY + (endY - startY) / 2;
+            
+            path.setAttribute('d', `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`);
+        }
+
+        window.addEventListener('resize', () => {
+            Object.keys(tooltipsData).forEach(id => updateConnectionLine(id));
+        });
+        
+        window.speakWord = function(word, lang = 'en-US') {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(word);
+                u.lang = lang; 
+                window.speechSynthesis.speak(u);
+            }
+        };
+
+        // ==========================================
+        // TÍNH NĂNG "HỎI A.I" VÀ CHAT UI
+        // ==========================================
+        let chatHistory = [];
+        let currentContextImageBase64 = null;
+
+        function closeAIChat() {
+            const aiChatModal = document.getElementById('ai-chat-modal');
+            aiChatModal?.classList.add('hidden');
+            aiChatModal?.classList.remove('flex');
+        }
+
+        function startAIChat(mode, base64Img = null) {
+            const aiDropdownMenu = document.getElementById('ai-dropdown-menu');
+            const aiChatModal = document.getElementById('ai-chat-modal');
+            
+            aiDropdownMenu?.classList.add('hidden'); 
+            aiChatModal?.classList.remove('hidden');
+            aiChatModal?.classList.add('flex', 'chat-slide-up');
+            
+            chatHistory = []; 
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) chatMessages.innerHTML = '';
+            
+            const contextContainer = document.getElementById('chat-context-img-container');
+            const contextImg = document.getElementById('chat-context-img');
+
+            if (mode === 'screen') {
+                currentContextImageBase64 = mainImage?.src.split(',')[1];
+                if(contextImg && mainImage) contextImg.src = mainImage.src;
+                contextContainer?.classList.remove('hidden');
+                addChatMessage("model", "Tôi đang nhìn vào bức ảnh toàn màn hình của bạn. Bạn muốn hỏi gì về nó?");
+            } else if (mode === 'region' && base64Img) {
+                currentContextImageBase64 = base64Img;
+                if(contextImg) contextImg.src = "data:image/jpeg;base64," + base64Img;
+                contextContainer?.classList.remove('hidden');
+                addChatMessage("model", "Tôi đã thấy góc ảnh bạn chọn. Bạn có câu hỏi gì không?");
+            } else {
+                currentContextImageBase64 = null;
+                contextContainer?.classList.add('hidden');
+                addChatMessage("model", "Xin chào! Bạn có thể hỏi tôi bất cứ thứ gì về từ vựng.");
+            }
+            setTimeout(() => {
+                const chatInput = document.getElementById('chat-input');
+                chatInput?.focus();
+            }, 300);
+        }
+
+        function addChatMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            const bubble = document.createElement('div');
+            if (role === 'user') {
+                bubble.className = 'bg-black dark:bg-white text-white dark:text-black px-4 py-3 rounded-2xl rounded-tr-none shadow-sm max-w-[85%] md:max-w-[70%] text-sm md:text-base';
+            } else {
+                bubble.className = 'bg-white dark:bg-darkCard text-black dark:text-white border border-gray-200 dark:border-gray-800 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm max-w-[85%] md:max-w-[70%] text-sm md:text-base';
+            }
+            let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+            bubble.innerHTML = formattedText;
+            div.appendChild(bubble);
+
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) {
+                chatMessages.appendChild(div);
+                const scrollArea = document.getElementById('chat-container-scroll');
+                if (scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight;
+            }
+        }
+
+        document.getElementById('chat-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const chatInput = document.getElementById('chat-input');
+            if(!chatInput) return;
+
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            addChatMessage("user", text);
+            chatInput.value = '';
+            
+            const loadingId = 'loading-' + Date.now();
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = loadingId;
+            loadingDiv.className = 'flex justify-start';
+            loadingDiv.innerHTML = `<div class="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 py-3 rounded-2xl rounded-tl-none text-sm"><i class="fas fa-circle-notch fa-spin"></i> Đang suy nghĩ...</div>`;
+            
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) {
+                chatMessages.appendChild(loadingDiv);
+                const scrollArea = document.getElementById('chat-container-scroll');
+                if(scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight;
+            }
+
+            try {
+                let contents = [];
+                if (chatHistory.length === 0 && currentContextImageBase64) {
+                    contents.push({
+                        role: "user",
+                        parts: [
+                            { text: text },
+                            { inlineData: { mimeType: "image/jpeg", data: currentContextImageBase64 } }
+                        ]
+                    });
+                } else {
+                    contents = [...chatHistory, { role: "user", parts: [{ text: text }] }];
+                }
+
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents })
+                });
+                if (!response.ok) throw new Error("API Error");
+                const data = await response.json();
+                const replyText = data.candidates[0].content.parts[0].text;
+                
+                document.getElementById(loadingId)?.remove();
+                addChatMessage("model", replyText);
+                
+                if(chatHistory.length === 0 && currentContextImageBase64) {
+                    chatHistory.push({ role: "user", parts: [{ text: "Tôi gửi một bức ảnh. " + text }] });
+                } else {
+                    chatHistory.push({ role: "user", parts: [{ text: text }] });
+                }
+                chatHistory.push({ role: "model", parts: [{ text: replyText }] });
+            } catch (error) {
+                console.error(error);
+                document.getElementById(loadingId)?.remove();
+                addChatMessage("model", "Xin lỗi, đã xảy ra lỗi kết nối. Vui lòng thử lại.");
+            }
+        });
+
+        // ==========================================
+        // TÍNH NĂNG CẮT ẢNH (HỎI MỘT GÓC)
+        // ==========================================
+        let isCropping = false;
+        let cropStartX = 0; let cropStartY = 0;
+
+        function startRegionCrop() {
+            const aiDropdownMenu = document.getElementById('ai-dropdown-menu');
+            const cropOverlay = document.getElementById('crop-overlay');
+            
+            aiDropdownMenu?.classList.add('hidden');
+            cropOverlay?.classList.remove('hidden');
+            if(allHidden) toggleHideAll();
+            hideAllTooltips();
+        }
+
+        function cancelCrop() {
+            const cropOverlay = document.getElementById('crop-overlay');
+            const selectionBox = document.getElementById('selection-box');
+            cropOverlay?.classList.add('hidden');
+            selectionBox?.classList.add('hidden');
+        }
+
+        document.getElementById('crop-overlay')?.addEventListener('mousedown', (e) => {
+            isCropping = true;
+            const cropOverlay = document.getElementById('crop-overlay');
+            const selectionBox = document.getElementById('selection-box');
+            if(!cropOverlay || !selectionBox) return;
+
+            const rect = cropOverlay.getBoundingClientRect();
+            cropStartX = (e.clientX - rect.left) / imgScale;
+            cropStartY = (e.clientY - rect.top) / imgScale;
+            selectionBox.style.left = cropStartX + 'px';
+            selectionBox.style.top = cropStartY + 'px';
+            selectionBox.style.width = '0px';
+            selectionBox.style.height = '0px';
+            selectionBox.classList.remove('hidden');
+        });
+
+        document.getElementById('crop-overlay')?.addEventListener('mousemove', (e) => {
+            if (!isCropping) return;
+            const cropOverlay = document.getElementById('crop-overlay');
+            const selectionBox = document.getElementById('selection-box');
+            if(!cropOverlay || !selectionBox) return;
+
+            const rect = cropOverlay.getBoundingClientRect();
+            const currentX = (e.clientX - rect.left) / imgScale;
+            const currentY = (e.clientY - rect.top) / imgScale;
+
+            const width = Math.abs(currentX - cropStartX);
+            const height = Math.abs(currentY - cropStartY);
+            const left = Math.min(currentX, cropStartX);
+            const top = Math.min(currentY, cropStartY);
+
+            selectionBox.style.width = width + 'px';
+            selectionBox.style.height = height + 'px';
+            selectionBox.style.left = left + 'px';
+            selectionBox.style.top = top + 'px';
+        });
+
+        document.getElementById('crop-overlay')?.addEventListener('mouseup', (e) => {
+            if (!isCropping) return;
+            isCropping = false;
+            
+            const cropOverlay = document.getElementById('crop-overlay');
+            const selectionBox = document.getElementById('selection-box');
+            if(!cropOverlay || !selectionBox || !mainImage) return;
+
+            const rect = cropOverlay.getBoundingClientRect();
+            const currentX = (e.clientX - rect.left) / imgScale;
+            const currentY = (e.clientY - rect.top) / imgScale;
+            
+            const left = Math.min(currentX, cropStartX);
+            const top = Math.min(currentY, cropStartY);
+            const width = Math.abs(currentX - cropStartX);
+            const height = Math.abs(currentY - cropStartY);
+
+            if (width < 20 || height < 20) {
+                selectionBox.classList.add('hidden');
+                return;
+            }
+
+            const imgW = mainImage.clientWidth;
+            const imgH = mainImage.clientHeight;
+            const imgRatio = mainImage.naturalWidth / mainImage.naturalHeight;
+            const boxRatio = imgW / imgH;
+
+            let renderW, renderH, renderX, renderY;
+            if (imgRatio > boxRatio) {
+                renderW = imgW;
+                renderH = imgW / imgRatio;
+                renderX = 0; renderY = (imgH - renderH) / 2;
+            } else {
+                renderH = imgH;
+                renderW = imgH * imgRatio;
+                renderY = 0; renderX = (imgW - renderW) / 2;
+            }
+
+            const scaleX = mainImage.naturalWidth / renderW;
+            const scaleY = mainImage.naturalHeight / renderH;
+
+            const sx = (left - renderX) * scaleX;
+            const sy = (top - renderY) * scaleY;
+            const sWidth = width * scaleX;
+            const sHeight = height * scaleY;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = sWidth;
+            canvas.height = sHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(mainImage, Math.max(0, sx), Math.max(0, sy), sWidth, sHeight, 0, 0, sWidth, sHeight);
+            const base64Crop = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+
+            cancelCrop();
+            startAIChat('region', base64Crop);
+        });
+    </script>
+</body>
+</html>
