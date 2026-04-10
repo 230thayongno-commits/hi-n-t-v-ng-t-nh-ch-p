@@ -1381,7 +1381,10 @@
             canvas.width = sWidth;
             canvas.height = sHeight;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(mainImage, Math.max(0, sx), Math.max(0, sy), sWidth, sHeight, 0, 0, sWidth, sHeight);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(mainImage, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
+
             const base64Crop = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
 
             cancelCrop();
