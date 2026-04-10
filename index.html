@@ -279,7 +279,7 @@
 
     <script>
         const apiKey = "AIzaSyCYTG6NfDSWLIrcrQovbUcAPVnrC0kP7TI"; 
-        const MODEL_NAME = "gemini-1.5-flash";
+        const MODEL_NAME = "gemini-2.0-flash";
         let tooltipsData = {}; 
         let zIndexCounter = 50;
         let currentTooltipScale = 1;
@@ -1144,10 +1144,6 @@
                 window.speechSynthesis.speak(u);
             }
         };
-
-        // ==========================================
-        // TÍNH NĂNG "HỎI A.I" VÀ CHAT UI
-        // ==========================================
         let chatHistory = [];
         let currentContextImageBase64 = null;
 
@@ -1278,10 +1274,6 @@
                 addChatMessage("model", "Xin lỗi, đã xảy ra lỗi kết nối. Vui lòng thử lại.");
             }
         });
-
-        // ==========================================
-        // TÍNH NĂNG CẮT ẢNH (HỎI MỘT GÓC)
-        // ==========================================
         let isCropping = false;
         let cropStartX = 0; let cropStartY = 0;
 
